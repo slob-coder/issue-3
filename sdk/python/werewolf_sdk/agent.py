@@ -62,7 +62,12 @@ class AgentBase(ABC):
         logger.info("Game ended: winner=%s", data.get("winner"))
 
     async def connect_and_play(self, room_id: str) -> None:
-        """Connect to a room via WebSocket and play the game."""
+        """Connect to a room via WebSocket and play the game.
+
+        Authenticates via X-API-Key header (preferred). For environments
+        that cannot set WebSocket headers, the server also accepts a
+        first-message auth: {"api_key": "..."}.
+        """
         self.room_id = room_id
         self._running = True
         ws_url = self.base_url.replace("http", "ws")
@@ -70,8 +75,13 @@ class AgentBase(ABC):
         try:
             import websockets
 
+            extra_headers = {}
+            if self.api_key:
+                extra_headers["X-API-Key"] = self.api_key
+
             async with websockets.connect(
-                f"{ws_url}/ws/agent/{room_id}?api_key={self.api_key}"
+                f"{ws_url}/ws/agent/{room_id}",
+                additional_headers=extra_headers,
             ) as ws:
                 self._ws = ws
                 while self._running:

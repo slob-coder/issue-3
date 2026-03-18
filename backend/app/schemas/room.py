@@ -45,6 +45,13 @@ class RoomResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    @model_validator(mode="after")
+    def fill_player_count(self) -> "RoomResponse":
+        """Derive player_count from config when not explicitly set."""
+        if self.player_count == 0 and isinstance(self.config, dict):
+            self.player_count = self.config.get("player_count", 0)
+        return self
+
 
 class RoomListResponse(BaseModel):
     rooms: list[RoomResponse]

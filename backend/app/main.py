@@ -43,6 +43,15 @@ async def lifespan(app: FastAPI):
     # Load roles
     RoleRegistry.load_defaults()
 
+    # CORS (configured via settings)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     # Start timeout checker
     timeout_task = asyncio.create_task(
         app.state.scheduler.run_timeout_checker(settings.timeout_check_interval)
@@ -68,15 +77,6 @@ def create_app() -> FastAPI:
         description="AI Agent Werewolf Game Platform",
         version="0.1.0",
         lifespan=lifespan,
-    )
-
-    # CORS
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
     )
 
     # Exception handlers

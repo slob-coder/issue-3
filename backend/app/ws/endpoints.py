@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -19,19 +20,29 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.websocket("/ws/agent/{room_id}")
-async def agent_ws_endpoint(ws: WebSocket, room_id: str):
-    """Agent WebSocket - bidirectional game communication."""
-    redis = ws.app.state.redis
+async def _authenticate_agent(ws: WebSocket) -> Agent | None:
+    """Authenticate agent via X-API-Key header or first-message auth.
 
-    # Authenticate
-    api_key = ws.query_params.get("api_key")
-    if not api_key:
-        await ws.close(code=4001, reason="Missing API key")
-        return
-
-    # Look up agent
+    Prefers the header-based approach to avoid exposing secrets in URLs.
+    Falls back to first-message JSON auth for clients that cannot set
+    WebSocket headers.
+    """
     session_factory = ws.app.state.session_factory
+    api_key = ws.headers.get("x-api-key")
+
+    if not api_key:
+        # Wait for first message with auth payload
+        try:
+            raw = await asyncio.wait_for(ws.receive_text(), timeout=10.0)
+            data = json.loads(raw)
+            api_key = data.get("api_key")
+            if not api_key:
+                await ws.close(code=4001, reason="Missing API key in auth message")
+                return None
+        except (asyncio.TimeoutError, json.JSONDecodeError):
+            await ws.close(code=4001, reason="Auth timeout or invalid auth message")
+            return None
+
     async with session_factory() as db:
         result = await db.execute(
             select(Agent).where(Agent.api_key == api_key, Agent.is_active == True)  # noqa: E712
@@ -40,10 +51,28 @@ async def agent_ws_endpoint(ws: WebSocket, room_id: str):
 
     if not agent:
         await ws.close(code=4003, reason="Invalid API key")
+        return None
+
+    return agent
+
+
+@router.websocket("/ws/agent/{room_id}")
+async def agent_ws_endpoint(ws: WebSocket, room_id: str):
+    """Agent WebSocket - bidirectional game communication.
+
+    Authentication: Send X-API-Key header, or send a JSON auth message
+    as the first message: {"api_key": "your-key-here"}
+    """
+    redis = ws.app.state.redis
+    await ws.accept()
+
+    agent = await _authenticate_agent(ws)
+    if not agent:
         return
 
     agent_id = str(agent.id)
-    await manager.connect_agent(ws, agent_id, room_id)
+    session_factory = ws.app.state.session_factory
+    await manager.connect_agent(ws, agent_id, room_id, accept=False)
     await ws.app.state.scheduler.track_connection(room_id, agent_id, connected=True)
 
     # Subscribe to agent's channel

@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class DayVotePhaseHandler(PhaseHandler):
     """Handle simultaneous voting."""
 
-    async def enter(self, game_state: GameState) -> None:
+    async def enter(self, game_state: GameState, **kwargs) -> None:
         game_state.phase = "day_vote"
         game_state.day_votes = {}
         await game_state.sync_to_redis(self.engine.redis)

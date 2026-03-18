@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class DaySpeechPhaseHandler(PhaseHandler):
     """Handle sequential speeches by alive players."""
 
-    async def enter(self, game_state: GameState) -> None:
+    async def enter(self, game_state: GameState, **kwargs) -> None:
         game_state.phase = "day_speech"
         game_state.speeches_this_round = []
         game_state.speaker_order = list(game_state.alive_seats)
@@ -127,13 +127,14 @@ class DaySpeechPhaseHandler(PhaseHandler):
             )
 
         # Persist
-        await self.event_bus.persist_event(
-            self.engine.db,
-            GameEvent(event="day.speech", room_id=game_state.room_id, data=broadcast_data),
-            game_state.round_number,
-            "day_speech",
-            actor_id=player.player_id,
-        )
+        async with self.engine.session_factory() as db:
+            await self.engine.event_bus.persist_event(
+                db,
+                GameEvent(event="day.speech", room_id=game_state.room_id, data=broadcast_data),
+                game_state.round_number,
+                "day_speech",
+                actor_id=player.player_id,
+            )
 
         # Next speaker
         game_state.speaker_index += 1

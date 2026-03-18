@@ -18,7 +18,7 @@ from app.schemas.room import RoomCreate
 
 if TYPE_CHECKING:
     from redis.asyncio import Redis
-    from sqlalchemy.ext.asyncio import AsyncSession
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from app.config import Settings
     from app.services.agent_scheduler import AgentScheduler
@@ -35,12 +35,14 @@ class RoomService:
         event_bus: EventBus,
         scheduler: AgentScheduler,
         settings: Settings,
+        session_factory: async_sessionmaker[AsyncSession] | None = None,
     ):
         self.db = db
         self.redis = redis
         self.event_bus = event_bus
         self.scheduler = scheduler
         self.settings = settings
+        self.session_factory = session_factory
 
     async def create_room(self, data: RoomCreate) -> Room:
         room = Room(name=data.name, config=data.config.model_dump(), status="waiting")
@@ -94,7 +96,7 @@ class RoomService:
         await self.db.commit()
 
         engine = GameEngine(
-            self.db, self.redis, self.event_bus, self.scheduler, self.settings
+            self.session_factory, self.redis, self.event_bus, self.scheduler, self.settings
         )
         await engine.start_game(str(room.id), players)
 

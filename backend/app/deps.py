@@ -19,6 +19,10 @@ async def get_db(request: Request) -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
+async def get_session_factory(request: Request):
+    return request.app.state.session_factory
+
+
 async def get_redis(request: Request):
     return request.app.state.redis
 
@@ -45,8 +49,9 @@ async def get_room_service(
     event_bus: EventBus = Depends(get_event_bus),
     scheduler=Depends(get_scheduler),
     settings=Depends(get_settings),
+    session_factory=Depends(get_session_factory),
 ) -> RoomService:
-    return RoomService(db, redis, event_bus, scheduler, settings)
+    return RoomService(db, redis, event_bus, scheduler, settings, session_factory)
 
 
 async def get_replay_service(db: AsyncSession = Depends(get_db)) -> ReplayService:

@@ -35,6 +35,7 @@ class GameState:
     night_kill_target: Optional[int] = None
     night_poison_target: Optional[int] = None
     night_actions_received: dict[str, bool] = field(default_factory=dict)  # role -> done
+    night_pending_werewolf_votes: dict[str, int | None] = field(default_factory=dict)  # player_id -> target_seat
     witch_heal_remaining: int = 1
     witch_poison_remaining: int = 1
     day_votes: dict[str, int] = field(default_factory=dict)  # player_id -> target_seat

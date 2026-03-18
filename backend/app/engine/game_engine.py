@@ -21,7 +21,7 @@ from app.services.event_bus import GameEvent
 
 if TYPE_CHECKING:
     from redis.asyncio import Redis
-    from sqlalchemy.ext.asyncio import AsyncSession
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from app.config import Settings
     from app.models.player import Player
@@ -32,19 +32,24 @@ logger = logging.getLogger(__name__)
 
 
 class GameEngine:
-    """Game engine - one per active room."""
+    """Game engine - one per active room.
+
+    Uses a session_factory to create short-lived DB sessions on demand
+    instead of holding a request-scoped session across the entire game
+    lifetime.
+    """
 
     _active_engines: dict[str, "GameEngine"] = {}
 
     def __init__(
         self,
-        db: AsyncSession,
+        session_factory: async_sessionmaker[AsyncSession],
         redis: Redis,
         event_bus: EventBus,
         scheduler: AgentScheduler,
         settings: Settings,
     ):
-        self.db = db
+        self.session_factory = session_factory
         self.redis = redis
         self.event_bus = event_bus
         self.scheduler = scheduler
@@ -123,16 +128,17 @@ class GameEngine:
         )
 
         # Persist game.start event
-        await self.event_bus.persist_event(
-            self.db,
-            GameEvent(
-                event="game.start",
-                room_id=room_id,
-                data={"player_count": len(players)},
-            ),
-            0,
-            "start",
-        )
+        async with self.session_factory() as db:
+            await self.event_bus.persist_event(
+                db,
+                GameEvent(
+                    event="game.start",
+                    room_id=room_id,
+                    data={"player_count": len(players)},
+                ),
+                0,
+                "start",
+            )
 
         logger.info("Game started: room=%s players=%d", room_id, len(players))
         await self.transition_to("night", game_state)
@@ -163,16 +169,17 @@ class GameEngine:
         """End the game and clean up."""
         room_id = game_state.room_id
 
-        await self.db.execute(
-            update(Room)
-            .where(Room.id == room_id)
-            .values(
-                status="finished",
-                winner=winner,
-                finished_at=datetime.utcnow(),
+        async with self.session_factory() as db:
+            await db.execute(
+                update(Room)
+                .where(Room.id == room_id)
+                .values(
+                    status="finished",
+                    winner=winner,
+                    finished_at=datetime.utcnow(),
+                )
             )
-        )
-        await self.db.commit()
+            await db.commit()
 
         all_roles = {str(p.seat_number): p.role for p in game_state.players.values()}
 
@@ -207,16 +214,17 @@ class GameEngine:
         )
 
         # Persist
-        await self.event_bus.persist_event(
-            self.db,
-            GameEvent(
-                event="game.end",
-                room_id=room_id,
-                data={"winner": winner, "rounds_played": game_state.round_number},
-            ),
-            game_state.round_number,
-            "end",
-        )
+        async with self.session_factory() as db:
+            await self.event_bus.persist_event(
+                db,
+                GameEvent(
+                    event="game.end",
+                    room_id=room_id,
+                    data={"winner": winner, "rounds_played": game_state.round_number},
+                ),
+                game_state.round_number,
+                "end",
+            )
 
         logger.info("Game ended: room=%s winner=%s rounds=%d", room_id, winner, game_state.round_number)
 

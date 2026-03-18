@@ -114,9 +114,11 @@ export class WerewolfClient {
     onMessage: (event: GameEvent) => void
   ): WebSocket {
     const wsUrl = this.baseUrl.replace("http", "ws");
-    const ws = new WebSocket(
-      `${wsUrl}/ws/agent/${roomId}?api_key=${this.apiKey}`
-    );
+    const ws = new WebSocket(`${wsUrl}/ws/agent/${roomId}`);
+    ws.onopen = () => {
+      // Authenticate via first message (avoids API key in URL)
+      ws.send(JSON.stringify({ api_key: this.apiKey }));
+    };
     ws.onmessage = (ev) => {
       const data = JSON.parse(ev.data);
       onMessage(data);

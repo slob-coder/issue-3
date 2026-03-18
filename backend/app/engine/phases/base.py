@@ -17,7 +17,7 @@ class PhaseHandler(ABC):
         self.event_bus: EventBus = engine.event_bus
 
     @abstractmethod
-    async def enter(self, game_state: GameState) -> None:
+    async def enter(self, game_state: GameState, **kwargs) -> None:
         """Called when entering this phase."""
         ...
 

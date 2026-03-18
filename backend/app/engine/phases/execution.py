@@ -68,17 +68,18 @@ class ExecutionPhaseHandler(PhaseHandler):
         )
 
         # Persist
-        await self.event_bus.persist_event(
-            self.engine.db,
-            GameEvent(event="phase.execution", room_id=game_state.room_id, data=result_data),
-            game_state.round_number,
-            "execution",
-        )
+        async with self.engine.session_factory() as db:
+            await self.engine.event_bus.persist_event(
+                db,
+                GameEvent(event="phase.execution", room_id=game_state.room_id, data=result_data),
+                game_state.round_number,
+                "execution",
+            )
 
         if hunter_death_pending and target_player:
             await self._handle_hunter_death(game_state, target_player)
         else:
-            await self.engine.transition_to("check_win", game_state)
+            await self.engine.transition_to("check_win", game_state, from_phase="execution")
 
     async def _handle_hunter_death(
         self, game_state: GameState, hunter: PlayerState
@@ -91,8 +92,10 @@ class ExecutionPhaseHandler(PhaseHandler):
                 room_id=game_state.room_id,
                 data={
                     "your_seat": hunter.seat_number,
-                    "available_targets": [s for s in game_state.alive_seats],
+                    "reason": "voted",
+                    "available_targets": list(game_state.alive_seats),
                     "timeout": self.engine.settings.default_action_timeout,
+                    "message": "你被投票出局了！作为猎人，你可以开枪带走一名玩家。",
                 },
             ),
         )
@@ -120,23 +123,46 @@ class ExecutionPhaseHandler(PhaseHandler):
                 target.elimination_reason = "hunter_shot"
                 await self._update_player_db(target)
 
+                # Broadcast hunter shot
+                shot_data = {
+                    "round": game_state.round_number,
+                    "hunter_seat": player.seat_number,
+                    "target_seat": target_seat,
+                    "message": f"猎人 {player.seat_number} 号开枪带走了 {target_seat} 号",
+                }
+                for p in game_state.alive_players:
+                    await self.event_bus.publish_to_agent(
+                        game_state.room_id,
+                        p.agent_id,
+                        GameEvent(event="phase.hunter.shot", room_id=game_state.room_id, data=shot_data),
+                    )
+                await self.event_bus.publish_to_spectators(
+                    game_state.room_id,
+                    GameEvent(
+                        event="phase.hunter.shot",
+                        room_id=game_state.room_id,
+                        data={**shot_data, "target_role": target.role},
+                    ),
+                )
+
         await self.engine.scheduler.cancel_timeout(
             game_state.room_id, player_id, "hunter_shoot"
         )
-        await self.engine.transition_to("check_win", game_state)
+        await self.engine.transition_to("check_win", game_state, from_phase="execution")
 
     async def on_timeout(self, game_state: GameState, player_id: str) -> None:
         # Hunter didn't shoot — move on
-        await self.engine.transition_to("check_win", game_state)
+        await self.engine.transition_to("check_win", game_state, from_phase="execution")
 
     async def _update_player_db(self, player_state: PlayerState) -> None:
-        await self.engine.db.execute(
-            update(Player)
-            .where(Player.id == player_state.player_id)
-            .values(
-                is_alive=player_state.is_alive,
-                eliminated_at_round=player_state.eliminated_at_round,
-                elimination_reason=player_state.elimination_reason,
+        async with self.engine.session_factory() as db:
+            await db.execute(
+                update(Player)
+                .where(Player.id == player_state.player_id)
+                .values(
+                    is_alive=player_state.is_alive,
+                    eliminated_at_round=player_state.eliminated_at_round,
+                    elimination_reason=player_state.elimination_reason,
+                )
             )
-        )
-        await self.engine.db.commit()
+            await db.commit()

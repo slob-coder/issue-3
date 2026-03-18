@@ -16,8 +16,11 @@ class ConnectionManager:
         self.agent_connections: dict[str, WebSocket] = {}
         self.spectator_connections: dict[str, list[WebSocket]] = {}
 
-    async def connect_agent(self, ws: WebSocket, agent_id: str, room_id: str) -> None:
-        await ws.accept()
+    async def connect_agent(
+        self, ws: WebSocket, agent_id: str, room_id: str, *, accept: bool = True
+    ) -> None:
+        if accept:
+            await ws.accept()
         self.agent_connections[agent_id] = ws
         logger.info("Agent %s connected to room %s", agent_id, room_id)
 
