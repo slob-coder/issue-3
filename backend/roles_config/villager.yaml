@@ -1,0 +1,8 @@
+id: villager
+name: 村民
+name_en: Villager
+faction: villager
+night_action_priority: null
+night_action_type: null
+description: "无特殊技能，通过白天发言和投票来推理身份并处决狼人。"
+abilities: []

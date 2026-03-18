@@ -1,0 +1,12 @@
+id: werewolf
+name: 狼人
+name_en: Werewolf
+faction: werewolf
+night_action_priority: 1
+night_action_type: kill
+description: "夜晚选择一名玩家击杀。多个狼人需要统一目标。"
+abilities:
+  - type: active
+    phase: night
+    name: 击杀
+    target: non_werewolf_alive

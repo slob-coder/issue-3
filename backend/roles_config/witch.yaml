@@ -1,0 +1,19 @@
+id: witch
+name: 女巫
+name_en: Witch
+faction: villager
+night_action_priority: 3
+night_action_type: heal_or_poison
+description: "拥有一瓶解药（可以救当晚被杀的人）和一瓶毒药（可以毒死一个人）。各限一次。"
+abilities:
+  - type: active
+    phase: night
+    name: 使用解药
+    uses: 1
+    effect: cancel_kill
+  - type: active
+    phase: night
+    name: 使用毒药
+    uses: 1
+    target: other_alive
+    effect: poison_kill

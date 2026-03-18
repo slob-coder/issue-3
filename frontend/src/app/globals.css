@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-card: #334155;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --accent-red: #ef4444;
+  --accent-blue: #3b82f6;
+  --accent-green: #22c55e;
+  --accent-yellow: #eab308;
+  --accent-purple: #a855f7;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.glass-card {
+  @apply bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl;
+}
+
+.glow-red {
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+}
+
+.glow-blue {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+}
+
+/* Phase animations */
+.phase-night {
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+}
+
+.phase-day {
+  background: linear-gradient(135deg, #0f172a 0%, #422006 100%);
+}
+
+/* Player seat */
+.seat-ring {
+  @apply w-16 h-16 rounded-full border-2 flex items-center justify-center transition-all duration-300;
+}
+
+.seat-alive {
+  @apply border-green-500 bg-green-500/10;
+}
+
+.seat-dead {
+  @apply border-red-500/50 bg-red-500/10 opacity-50;
+}
+
+.seat-active {
+  @apply border-yellow-400 ring-2 ring-yellow-400/50 animate-pulse;
+}
