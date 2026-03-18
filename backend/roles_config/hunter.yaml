@@ -1,0 +1,13 @@
+id: hunter
+name: 猎人
+name_en: Hunter
+faction: villager
+night_action_priority: null
+night_action_type: null
+description: "被杀死时可以选择带走一名玩家（发动技能）。"
+abilities:
+  - type: passive
+    trigger: on_death
+    name: 猎枪
+    target: other_alive
+    effect: shoot_kill

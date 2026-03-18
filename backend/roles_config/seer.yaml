@@ -1,0 +1,13 @@
+id: seer
+name: 预言家
+name_en: Seer
+faction: villager
+night_action_priority: 2
+night_action_type: investigate
+description: "夜晚选择一名玩家查验其身份（狼人/好人）。"
+abilities:
+  - type: active
+    phase: night
+    name: 查验
+    target: other_alive
+    result: faction_check
